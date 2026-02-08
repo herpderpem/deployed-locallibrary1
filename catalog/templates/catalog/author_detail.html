@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Author: {{ author.first_name }} {{author.last_name}}</h1>
+    <p>Born:{{ author.date_of_birth }}  Died:{{ author.date_of_death }}</p>
+
+
+<h1>{{ author.name }}</h1>
+
+
+  <h2>Books by this author</h2>
+
+  {% if book_list %}
+    <ul>
+      {% for book in book_list %}
+        <li>
+          <a href="{{ book.get_absolute_url }}">{{ book.title }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No books listed for this author.</p>
+  {% endif %}
+
+
+{% endblock %}
