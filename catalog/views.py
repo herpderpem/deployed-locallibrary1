@@ -1,9 +1,15 @@
 from .models import Book, Author, BookInstance, Genre
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import generic
-
-
+from django.views.generic.edit import CreateView, UpdateView
+from .models import Author, Book
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.http import HttpResponseRedirect
+from django.urls import reverse
+from .forms import LoanBookForm
+import datetime
 def index(request):
     """View function for home page of site."""
     num_books = Book.objects.all().count()
@@ -27,10 +33,9 @@ def index(request):
         'num_visits': num_visits,
     }
     # Render the HTML template index.html with the data in the context variable
-    return render(request, 'index.html', context=context)
+    return render(request, 'catalog/index.html', context=context)
 
 
-from django.views import generic
 
 class BookListView(LoginRequiredMixin, generic.ListView):
     model = Book
@@ -43,20 +48,110 @@ class AuthorListView(LoginRequiredMixin, generic.ListView):
 class AuthorDetailView(LoginRequiredMixin, generic.DetailView):
     model = Author
 
-from django.views.generic import DetailView
-from .models import Author
-
-from django.views import generic
-from .models import Author, Book
 
 class AuthorDetailView(generic.DetailView):
     model = Author
     template_name = 'catalog/author_detail.html'
     context_object_name = 'author'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['book_list'] = Book.objects.filter(author=self.object)
-        return context
+
+class LoanedBooksByUserListView(LoginRequiredMixin,generic.ListView):
+    """Generic class-based view listing books on loan to current user."""
+    model = BookInstance
+    template_name = 'catalog/my_books.html'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return BookInstance.objects.filter \
+            (borrower=self.request.user).filter(status__exact='o').order_by('due_back')
+
+class AuthorCreate(CreateView):
+    model = Author
+    fields = ['first_name', 'last_name', 'date_of_birth', 'date_of_death', 'author_image']
+
+    def form_valid(self, form):
+        post = form.save(commit=False)
+        post.save()
+        return HttpResponseRedirect(reverse('author_list'))
+
+class AuthorUpdate(UpdateView):
+    model = Author
+    fields = ['first_name', 'last_name', 'date_of_birth', 'date_of_death', 'author_image']
+
+    def form_valid(self, form):
+        post = form.save(commit=False)
+        post.save()
+        return HttpResponseRedirect(reverse('author_list'))
+
+def author_delete(request, pk):
+    author = get_object_or_404(Author, pk=pk)
+    try:
+        author.delete()
+        messages.success(request, (author.first_name + ' ' + author.last_name +" has been deleted"))
+    except:
+        messages.success(request, (author.first_name + ' ' + author.last_name + ' cannot be deleted. Books exist for this author'))
+    return redirect('author_list')
+
+class AvailBooksListView(generic.ListView):
+    model = BookInstance
+    template_name = 'catalog/bookinstance_list_available.html'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return BookInstance.objects.filter(status__exact='a').order_by('book__title')
 
 
+def loan_book_librarian(request, pk):
+    """View function for renewing a specific BookInstance by librarian."""
+    book_instance = get_object_or_404(BookInstance, pk=pk)
+# If this is a POST request then process the Form data
+    if request.method == 'POST':
+# Create a form instance and populate it with data from the request (binding):
+        form = LoanBookForm(request.POST, instance=book_instance)
+# Check if the form is valid:
+        if form.is_valid():
+# process the data in form.cleaned_data as required (set due date and update status of book)
+            book_instance = form.save()
+            book_instance.due_back = datetime.date.today() + datetime.timedelta(weeks=4)
+            book_instance.status = 'o'
+            book_instance.save()
+# redirect to a new URL:
+            return HttpResponseRedirect(reverse('all_available'))
+# If this is a GET (or any other method) create the default form
+    else:
+        form = LoanBookForm(instance=book_instance, initial={'book_title': book_instance.book.title})
+        return render(request, 'catalog/loan_book_librarian.html', {'form':form})
+
+class BookCreate(CreateView):
+    model = Book
+    fields = ['title', 'author', 'summary', 'isbn', 'genre', 'book_image']
+
+
+    def form_valid(self, form):
+        post = form.save(commit=False)
+        post.save()
+        for genre in form.cleaned_data['genre']:
+            theGenre = get_object_or_404(Genre, name=genre)
+            post.genre.add(theGenre)
+            post.save()
+        return HttpResponseRedirect(reverse('book_list'))
+
+class BookUpdate(UpdateView):
+    model = Book
+    fields = ['title', 'author', 'summary', 'isbn', 'genre', 'book_image']
+
+    def form_valid(self, form):
+        post = form.save(commit=False)
+        for genre in post.genre.all():
+            post.genre.remove(genre)
+        for genre in form.cleaned_data['genre']:
+            theGenre = get_object_or_404(Genre, name=genre)
+            post.genre.add(theGenre)
+        post.save()
+        return HttpResponseRedirect(reverse('book_list'))
+
+def book_delete(request, pk):
+    book = get_object_or_404(Book, pk=pk)
+    book.delete()
+    messages.success(request, (book.title + ' ' + " has been deleted"))
+    return redirect('book_list')

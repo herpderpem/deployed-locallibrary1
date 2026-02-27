@@ -1,5 +1,6 @@
-{% extends "base.html" %}
+{% extends "catalog/base.html" %}
 {% block content %}
+    <a href="{% url 'book_list' %}" class="btn btn-secondary">Back</a>
   <h1>Title: {{ book.title }}</h1>
 
 
@@ -7,6 +8,12 @@
   <p><strong>Summary:</strong> {{ book.summary }}</p>
   <p><strong>ISBN:</strong> {{ book.isbn }}</p>
   <p><strong>Genre:</strong> {{ book.genre.all|join:", " }}</p>
+
+    <div>
+        {% if book.book_image %}
+        <img alt="Book image" class="card-img-top embed-responsive-item" src="{{ book.book_image.url }}" style="max-width: 200px; height: auto;"/>
+        {% endif %}
+    </div>
 
   <div style="margin-left:20px;margin-top:20px">
     <h4>Copies</h4>
@@ -17,6 +24,7 @@
         {{ copy.get_status_display }}
       </p>
       {% if copy.status != 'a' %}
+          <h3><strong>No Copies Available</strong></h3>
         <p><strong>Due to be returned:</strong> {{ copy.due_back }}</p>
       {% endif %}
       <p><strong>Imprint:</strong> {{ copy.imprint }}</p>

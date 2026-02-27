@@ -1,25 +1,30 @@
-{% extends "base.html" %}
+{% extends "catalog/base.html" %}
 {% block content %}
+    <a href="{% url 'author_list' %}" class="btn btn-secondary">Back</a>
   <h1>Author: {{ author.first_name }} {{author.last_name}}</h1>
     <p>Born:{{ author.date_of_birth }}  Died:{{ author.date_of_death }}</p>
-
+    <div>
+{% if author.author_image %}
+<img alt="Author image" class="card-img-top embed-responsive-item"
+src="{{ author.author_image.url }}" style="max-width: 200px;
+height: auto;"/>
+{% endif %}
+</div>
 
 <h1>{{ author.name }}</h1>
 
+<div><h2>Books by this author</h2>
 
-  <h2>Books by this author</h2>
+    {% for book in author.book_set.all %}
+        <hr>
+            <p>
+            <a href="{{ book.get_absolute_url }}">{{ book.title }}</a>
+            </p>
+    {% empty %}
+        <p><strong>No Books Available</strong></p>
+    {%  endfor %}
+</div>
 
-  {% if book_list %}
-    <ul>
-      {% for book in book_list %}
-        <li>
-          <a href="{{ book.get_absolute_url }}">{{ book.title }}</a>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No books listed for this author.</p>
-  {% endif %}
 
 
 {% endblock %}
